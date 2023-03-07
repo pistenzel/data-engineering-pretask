@@ -3,21 +3,67 @@ The robot's operating system is already in place, all joints are properly oiled 
 The module makes sure it does not overextend its maximum load while still being the most effective!
 """
 
-
+import functools
 import itertools
-import pandas as pd
-import numpy as np
 import logging
+
+from pyinstrument import Profiler
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
+def code_profiler(function):
+    """
+    Decorator to analyze the steps made by the code in a function.
+    :param function:
+    :return:
+    """
+    @functools.wraps(function)
+    def wrapper_decorator(*args, **kwargs):
+        profiler = Profiler()
+        profiler.start()
+        # start the function to profile
+        value = function(*args, **kwargs)
+        profiler.stop()
+        print(profiler.output_text(unicode=True, color=True, show_all=True))
+        return value
+    return wrapper_decorator
+
+
+def prepare_data(orders):
+    """
+    Method to prepare the data for the maximum profit calculation. It transforms a list of orders into a list of values
+    and a list of weights. The method provides an initial validation of the data input and returns two empty lists in
+    error case.
+    :param orders:
+    :return: List of values and list of weights. Returns empty lists for invalid orders.
+    """
+    values = []
+    weights = []
+    try:
+        df = pd.DataFrame.from_dict(orders)
+        if df.empty and not df.columns.isin(['value', 'weight']).any():
+            raise ValueError('DataFrame empty - No input values or weights given!')
+        values = df['value'].tolist()
+        weights = df['weight'].tolist()
+    except ValueError as ex:
+        logger.error(f'prepare_data - {ex}')
+    return values, weights
+
+
 def solve(values: np.ndarray, weights: np.ndarray, maximum_weight: int) -> int:
     """
+    Method that provides a solution for the known Knapsack problem: https://en.wikipedia.org/wiki/Knapsack_problem
+    Based on the weights and values with each n items, and the maximum weight (maximum capacity) the maximum profit is
+    calculated.
+
     :param values: List of values.
     :param weights: List of weights.
     :param maximum_weight: Maximum weight the robot system can handle.
-    :return: The optimized maximum weight.
+    :return: The maximum profit.
     """
     n = len(values)
     matrix = [[0 for _ in range(maximum_weight + 1)] for _ in range(n + 1)]
@@ -32,14 +78,13 @@ def solve(values: np.ndarray, weights: np.ndarray, maximum_weight: int) -> int:
     return matrix[len(values)][maximum_weight]
 
 
-def maximum_value(orders: dict, maximum_weight: int) -> int:
+@code_profiler
+def maximum_value(orders: list, maximum_weight: int) -> int:
     """
     For a given list of orders and a maximum_load, tries to find the best combination of items based on their value.
     :param orders: List of orders, each order is a dictionary, e.g. orders = [{'weight': 5, 'value': 10}].
     :param maximum_weight: Maximum weight the robot system can handle.
     :return: The optimized maximum weight.
     """
-    df = pd.DataFrame.from_dict(orders)
-    if df.empty:
-        return 0
-    return solve(np.array(df['value']), np.array(df['weight']), maximum_weight)
+    values, weights = prepare_data(orders)
+    return solve(values, weights, maximum_weight)
