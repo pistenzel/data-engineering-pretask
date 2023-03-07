@@ -75,10 +75,9 @@ def solve(values: np.ndarray, weights: np.ndarray, maximum_weight: int) -> int:
             matrix[i][j] = max(values[i - 1] + matrix[i - 1][j - weights[i - 1]], matrix[i - 1][j])
         else:
             matrix[i][j] = matrix[i - 1][j]
-    return matrix[len(values)][maximum_weight]
+    return matrix[n][maximum_weight]
 
 
-@code_profiler
 def maximum_value(orders: list, maximum_weight: int) -> int:
     """
     For a given list of orders and a maximum_load, tries to find the best combination of items based on their value.
